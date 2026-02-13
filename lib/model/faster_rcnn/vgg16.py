@@ -59,4 +59,3 @@ class vgg16(_fasterRCNN):
     fc7 = self.RCNN_top(pool5_flat)
 
     return fc7
-
