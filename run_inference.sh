@@ -54,5 +54,6 @@ PYTHONUNBUFFERED=1 python -u inference.py \
     --checkepoch $CHECKEPOCH \
     --checkpoint $CHECKPOINT \
     --load_dir $LOADDIR \
-    # --webcam \
-    # --no_save \
+    --cuda \
+    --webcam \
+    --no_save

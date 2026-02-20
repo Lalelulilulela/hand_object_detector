@@ -229,4 +229,7 @@ lib/pycocotools/_mask.c
 
 
 # annotated results
-inference-results/*
+inference-results*/
+
+videos/
+py38/

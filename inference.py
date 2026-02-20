@@ -50,7 +50,7 @@ def parse_args():
                         help='Webcam capture height (used only with --webcam).')
     parser.add_argument('--no_save', action='store_true',
                         help='Do not save output video (display only for webcam).')
-    parser.add_argument('--hand_states', type=str, default="2,3,4",
+    parser.add_argument('--hand_states', type=str, default="1,2,3,4",
                         help='Comma-separated contact states to visualize. '
                              '0=N (No Contact), 1=S (Self), 2=O (Other), 3=P (Portable), 4=F (Fixed).')
     parser.add_argument('--hand_side', type=str, default="any", choices=["L", "R", "any"],
@@ -184,8 +184,16 @@ def main():
             fps = args.fps
         elif not fps or fps < 1 or fps > 120:
             fps = 30
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    
+        # Read first frame to get TRUE dimensions
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to read first frame.")
+            cap.release()
+            continue
+
+        height, width = frame.shape[:2]
+
         if args.no_save:
             output_path = None
             out = None
@@ -194,16 +202,28 @@ def main():
                 base_name = f"webcam{webcam_index}_{time.strftime('%Y%m%d-%H%M%S')}"
             else:
                 base_name = os.path.basename(video_file)[:-4]
+
             thresh_tag = f"hands-{args.thresh_hand:.2f}-objs-{args.thresh_obj:.2f}"
-            output_path = os.path.join(args.save_dir, f"{base_name}_{thresh_tag}_det.mp4")
+            output_path = os.path.join(
+                args.save_dir,
+                f"{base_name}_{thresh_tag}_{args.hand_states}det.mp4"
+            )
+
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
+            if not out.isOpened():
+                raise RuntimeError(f"VideoWriter failed for {output_path}")
+
+        # IMPORTANT: we already consumed first frame
         frame_idx = 0
         while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
+
+            # First iteration uses already-read frame
+            if frame_idx > 0:
+                ret, frame = cap.read()
+                if not ret:
+                    break
 
             im = frame
             blobs, im_scales = _get_image_blob(im)

@@ -32,8 +32,13 @@ def draw_obj_mask(image, draw, obj_idx, obj_bbox, obj_score, width, height, font
     pmask.rectangle(obj_bbox, outline=obj_rgb, width=4, fill=obj_rgba) 
     image.paste(mask, (0,0), mask)  
 
-    draw.rectangle([obj_bbox[0], max(0, obj_bbox[1]-30), obj_bbox[0]+32, max(0, obj_bbox[1]-30)+30], fill=(255, 255, 255), outline=obj_rgb, width=4)
-    draw.text((obj_bbox[0]+5, max(0, obj_bbox[1]-30)-2), f'O', font=font, fill=(0,0,0)) #
+    # draw.rectangle([obj_bbox[0], max(0, obj_bbox[1]-30), obj_bbox[0]+32, max(0, obj_bbox[1]-30)+30], fill=(255, 255, 255), outline=obj_rgb, width=4)
+    # draw.text((obj_bbox[0]+5, max(0, obj_bbox[1]-30)-2), f'O', font=font, fill=(0,0,0)) #
+    label = f"O {float(obj_score):.2f}"
+    tw = draw.textbbox((0, 0), label, font=font)[2] + 12
+    draw.rectangle([obj_bbox[0], max(0, obj_bbox[1]-30), obj_bbox[0] + tw, max(0, obj_bbox[1]-30)+30],
+                fill=(255, 255, 255), outline=obj_rgb, width=4)
+    draw.text((obj_bbox[0]+5, max(0, obj_bbox[1]-30)-2), label, font=font, fill=(0,0,0))
 
     return image
 
@@ -51,8 +56,13 @@ def draw_hand_mask(image, draw, hand_idx, hand_bbox, hand_score, side, state, wi
     # text
     
     draw = ImageDraw.Draw(image)
-    draw.rectangle([hand_bbox[0], max(0, hand_bbox[1]-30), hand_bbox[0]+62, max(0, hand_bbox[1]-30)+30], fill=(255, 255, 255), outline=hand_rgb[side_idx], width=4)
-    draw.text((hand_bbox[0]+6, max(0, hand_bbox[1]-30)-2), f'{side_map3[int(float(side))]}-{state_map2[int(float(state))]}', font=font, fill=(0,0,0)) # 
+    # draw.rectangle([hand_bbox[0], max(0, hand_bbox[1]-30), hand_bbox[0]+62, max(0, hand_bbox[1]-30)+30], fill=(255, 255, 255), outline=hand_rgb[side_idx], width=4)
+   
+    label = f"{side_map3[int(float(side))]}-{state_map2[int(float(state))]} {float(hand_score):.2f}"
+    tw = draw.textbbox((0, 0), label, font=font)[2] + 12
+    draw.rectangle([hand_bbox[0], max(0, hand_bbox[1]-30), hand_bbox[0] + tw, max(0, hand_bbox[1]-30)+30],
+                fill=(255, 255, 255), outline=hand_rgb[side_idx], width=4)
+    draw.text((hand_bbox[0]+6, max(0, hand_bbox[1]-30)-2), label, font=font, fill=(0,0,0))
 
     return image
     

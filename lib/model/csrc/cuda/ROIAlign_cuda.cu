@@ -2,7 +2,6 @@
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
 #include <ATen/ceil_div.h>
-
 // #include <THC/THC.h>
 // #include <THC/THCAtomics.cuh>
 // #include <THC/THCDeviceUtils.cuh>
@@ -277,7 +276,10 @@ at::Tensor ROIAlign_forward_cuda(const at::Tensor& input,
   auto output_size = num_rois * pooled_height * pooled_width * channels;
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
-  dim3 grid(std::min(at::ceil_div(output_size, 512L), 4096L));
+  // dim3 grid(std::min(at::ceil_div(output_size, 512L), 4096L));
+  int64_t blocks = (output_size + 512 - 1) / 512;
+  blocks = std::min(blocks, (int64_t)4096);
+  dim3 grid(blocks);
   dim3 block(512);
 
   if (output.numel() == 0) {
@@ -322,7 +324,10 @@ at::Tensor ROIAlign_backward_cuda(const at::Tensor& grad,
 
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
-  dim3 grid(std::min(at::ceil_div(grad.numel(), 512L), 4096L));
+  // dim3 grid(std::min(at::ceil_div(grad.numel(), 512L), 4096L));
+  int64_t blocks = (grad.numel() + 512 - 1) / 512;
+  blocks = std::min(blocks, (int64_t)4096);
+  dim3 grid(blocks);
   dim3 block(512);
 
   // handle possibly empty gradients
