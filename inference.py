@@ -41,8 +41,16 @@ def parse_args():
     parser.add_argument('--class_agnostic', dest='class_agnostic', action='store_true')
     parser.add_argument('--thresh_hand', type=float, default=0.6)
     parser.add_argument('--thresh_obj', type=float, default=0.7)
-    parser.add_argument('--thresh_contact', type=float, default=0.7,
-                        help='Only visualize detections with contact probability >= threshold.')
+    parser.add_argument('--thresh_contact', type=float, default=0.5,
+                        help='Only visualize detections with person contact probability >= threshold.')
+    parser.add_argument('--thresh_person_contact', type=float, default=0.2,
+                        help='Only visualize detections with person contact probability >= threshold.')
+    parser.add_argument('--thresh_self_contact', type=float, default=0.5,
+                        help='Only visualize detections with person contact probability >= threshold.')
+    parser.add_argument('--thresh_no_contact', type=float, default=0.5,
+                        help='Only visualize detections with no contact probability >= threshold.')
+    parser.add_argument('--thresh_object_contact', type=float, default=0.5,
+                        help='Only visualize detections with person contact probability >= threshold.')
     parser.add_argument('--video_dir', type=str, default="/Users/jing/Synapxe/semantic-segmentation/videos")
     parser.add_argument('--webcam', action='store_true',
                         help='Enable live webcam inference using device index 0.')
@@ -88,6 +96,14 @@ def _get_image_blob(im):
 
 def main():
     args = parse_args()
+
+    state_thresholds = {
+        0: args.thresh_no_contact,
+        1: args.thresh_self_contact,
+        2: args.thresh_person_contact,
+        3: args.thresh_object_contact,
+        4: args.thresh_object_contact
+    }
 
     # Parse hand state filter
     args.hand_states = [int(x) for x in args.hand_states.split(",") if x.strip() != ""]
@@ -205,7 +221,15 @@ def main():
             else:
                 base_name = os.path.basename(video_file)[:-4]
 
-            thresh_tag = f"hands-{args.thresh_hand:.2f}-objs-{args.thresh_obj:.2f}-contact-{args.thresh_contact:.2f}"
+            thresh_tag = (
+                f"hands-{args.thresh_hand:.2f}-"
+                f"objs-{args.thresh_obj:.2f}-"
+                f"no-self-person-obj_contact-"
+                f"{args.thresh_no_contact:.2f}-"
+                f"{args.thresh_self_contact:.2f}-"
+                f"{args.thresh_person_contact:.2f}-"
+                f"{args.thresh_person_contact:.2f}"
+            )
             output_path = os.path.join(
                 args.save_dir,
                 f"{base_name}_{thresh_tag}_{args.hand_states}det.mp4"
@@ -321,21 +345,62 @@ def main():
                         if cls_name == 'hand':
                             hand_dets = cls_dets.cpu().numpy()
 
-                # Filter hand detections by contact prob/side/state if requested
+                # ==========================================================
+                # HAND FILTERING
+                # ==========================================================
                 if hand_dets is not None:
-                    # hand_dets columns: [x1,y1,x2,y2, score, state, contact_prob, off1, off2, off3, lr]
-                    states = hand_dets[:, 5]
-                    lr_vals = hand_dets[:, 10]
+
+                    # [x1,y1,x2,y2, score, state, contact_prob, off1, off2, off3, lr]
+                    states = hand_dets[:, 5].astype(int)
                     contact_probs_det = hand_dets[:, 6]
-                    keep_mask = np.isin(states, args.hand_states) & (contact_probs_det >= args.thresh_contact)
+                    lr_vals = hand_dets[:, 10]
+
+                    thresholds_array = np.array([
+                        state_thresholds.get(s, args.thresh_contact)
+                        for s in states
+                    ])
+
+                    state_mask = np.isin(states, args.hand_states)
+                    prob_mask = contact_probs_det >= thresholds_array
+
+                    keep_mask = state_mask & prob_mask
+
                     if args.hand_side != "any":
-                        keep_mask &= (lr_vals == 0) if args.hand_side == "L" else (lr_vals == 1)
+                        if args.hand_side == "L":
+                            keep_mask &= (lr_vals == 0)
+                        else:
+                            keep_mask &= (lr_vals == 1)
+
                     hand_dets = hand_dets[keep_mask]
+
                     if hand_dets.size == 0:
                         hand_dets = None
+
+
+                # ==========================================================
+                # OBJECT FILTERING (now symmetric with hands)
+                # ==========================================================
                 if obj_dets is not None:
+
+                    # assume same structure:
+                    # [x1,y1,x2,y2, score, state, contact_prob, off1, off2, off3, lr]
+                    states = obj_dets[:, 5].astype(int)
                     contact_probs_det = obj_dets[:, 6]
-                    obj_dets = obj_dets[contact_probs_det >= args.thresh_contact]
+
+                    thresholds_array = np.array([
+                        state_thresholds.get(s, args.thresh_contact)
+                        for s in states
+                    ])
+
+                    # if you want to restrict objects to specific states:
+                    state_mask = np.isin(states, args.hand_states)  # or define args.obj_states
+
+                    prob_mask = contact_probs_det >= thresholds_array
+
+                    keep_mask = state_mask & prob_mask
+
+                    obj_dets = obj_dets[keep_mask]
+
                     if obj_dets.size == 0:
                         obj_dets = None
 

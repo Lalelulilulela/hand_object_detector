@@ -9,6 +9,10 @@ FPS=30
 THRESH_HAND=0.6
 THRESH_OBJ=0.7
 THRESH_CONTACT=0.5
+THRESH_NO_CONTACT=0.5
+THRESH_SELF_CONTACT=0.2
+THRESH_PERSON_CONTACT=0.5
+THRESH_OBJECT_CONTACT=0.5
 HAND_STATES="0"
 VIDEO_DIR="/Users/jing/Synapxe/semantic-segmentation/videos"  # Video input directory
 BASE_SAVE_DIR="./inference-results-no_contact_test-$CHECKPOINT"    # Base output directory
@@ -51,6 +55,10 @@ ARGS=(
     --thresh_hand "$THRESH_HAND"
     --thresh_obj "$THRESH_OBJ"
     --thresh_contact "$THRESH_CONTACT"
+    --thresh_no_contact "$THRESH_NO_CONTACT"
+    --thresh_self_contact "$THRESH_SELF_CONTACT"
+    --thresh_person_contact "$THRESH_PERSON_CONTACT"
+    --thresh_object_contact "$THRESH_OBJECT_CONTACT"
     --hand_states "$HAND_STATES"
     # --webcam
     # --no_save
