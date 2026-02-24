@@ -94,46 +94,23 @@ def _get_image_blob(im):
     blob = im_list_to_blob(processed_ims)
     return blob, np.array(im_scale_factors)
 
-def main():
-    args = parse_args()
 
-    state_thresholds = {
-        0: args.thresh_no_contact,
-        1: args.thresh_self_contact,
-        2: args.thresh_person_contact,
-        3: args.thresh_object_contact,
-        4: args.thresh_object_contact
-    }
-
-    # Parse hand state filter
-    args.hand_states = [int(x) for x in args.hand_states.split(",") if x.strip() != ""]
-
-    # Select device: CUDA if requested and available; otherwise MPS if available; else CPU
-    if args.cuda and torch.cuda.is_available():
+# -------------------------
+# Device Setup
+# -------------------------
+def setup_device(cuda_flag):
+    if cuda_flag and torch.cuda.is_available():
         device = torch.device("cuda")
-    # elif torch.backends.mps.is_available():
-    #     device = torch.device("mps")
     else:
         device = torch.device("cpu")
-
-    use_cuda = device.type == "cuda"
     print(f"Using device: {device.type}")
+    return device
 
-    # Load config
-    if args.cfg_file:
-        cfg_from_file(args.cfg_file)
-    if args.set_cfgs is not None:
-        cfg_from_list(args.set_cfgs)
-
-    cfg.USE_GPU_NMS = use_cuda
-    np.random.seed(cfg.RNG_SEED)
-
-    # load model
+def load_model(device, args, use_cuda, pascal_classes):
     model_dir = os.path.join(args.load_dir, f"{args.net}_handobj_100K", args.dataset)
     if not os.path.exists(model_dir):
         raise Exception(f'There is no input directory for loading network from {model_dir}')
     load_name = os.path.join(model_dir, f'faster_rcnn_{args.checksession}_{args.checkepoch}_{args.checkpoint}.pth')
-    pascal_classes = np.asarray(['__background__', 'targetobject', 'hand'])
 
     if args.net == 'vgg16':
         fasterRCNN = vgg16(pascal_classes, pretrained=False, class_agnostic=args.class_agnostic)
@@ -149,11 +126,40 @@ def main():
     fasterRCNN.load_state_dict(checkpoint['model'])
     if 'pooling_mode' in checkpoint.keys():
         cfg.POOLING_MODE = checkpoint['pooling_mode']
-
     if use_cuda:
         cfg.CUDA = True
     fasterRCNN.to(device)
     fasterRCNN.eval()
+
+    return fasterRCNN
+
+def main():
+    args = parse_args()
+
+    state_thresholds = {
+        0: args.thresh_no_contact,
+        1: args.thresh_self_contact,
+        2: args.thresh_person_contact,
+        3: args.thresh_object_contact,
+        4: args.thresh_object_contact
+    }
+
+    # Parse hand state filter
+    args.hand_states = [int(x) for x in args.hand_states.split(",") if x.strip() != ""]
+    device = setup_device(args.cuda)   
+    use_cuda = device.type == "cuda"
+    # Load config
+    if args.cfg_file:
+        cfg_from_file(args.cfg_file)
+    if args.set_cfgs is not None:
+        cfg_from_list(args.set_cfgs)
+
+    cfg.USE_GPU_NMS = use_cuda
+    np.random.seed(cfg.RNG_SEED)
+
+    # load model
+    pascal_classes = np.asarray(['__background__', 'targetobject', 'hand'])
+    fasterRCNN = load_model(device, args, use_cuda, pascal_classes)
 
     # initialize tensor holders (like demo.py)
     im_data = torch.FloatTensor(1)
@@ -228,7 +234,7 @@ def main():
                 f"{args.thresh_no_contact:.2f}-"
                 f"{args.thresh_self_contact:.2f}-"
                 f"{args.thresh_person_contact:.2f}-"
-                f"{args.thresh_person_contact:.2f}"
+                f"{args.thresh_object_contact:.2f}"
             )
             output_path = os.path.join(
                 args.save_dir,
@@ -376,7 +382,6 @@ def main():
                     if hand_dets.size == 0:
                         hand_dets = None
 
-
                 # ==========================================================
                 # OBJECT FILTERING (now symmetric with hands)
                 # ==========================================================
@@ -407,7 +412,7 @@ def main():
                 # If no objects survived filtering, drop hands that claim object contact
                 if obj_dets is None and hand_dets is not None:
                     # state codes: 0=N (No Contact), 1=S (Self), 2=O (Other), 3=P (Portable), 4=F (Fixed)
-                    object_contact_states = [2, 3, 4]
+                    object_contact_states = [1, 2, 3, 4]
                     keep_mask = ~np.isin(hand_dets[:, 5], object_contact_states)
                     hand_dets = hand_dets[keep_mask]
                     if hand_dets.size == 0:

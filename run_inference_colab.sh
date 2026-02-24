@@ -10,12 +10,12 @@ THRESH_HAND=0.6
 THRESH_OBJ=0.7
 THRESH_CONTACT=0.5
 THRESH_NO_CONTACT=0.5
-THRESH_SELF_CONTACT=0.2
-THRESH_PERSON_CONTACT=0.5
+THRESH_SELF_CONTACT=0.5
+THRESH_PERSON_CONTACT=0.2
 THRESH_OBJECT_CONTACT=0.5
-HAND_STATES="0"
-VIDEO_DIR="./videos/no_contact_test"  # Video input directory
-BASE_SAVE_DIR="./inference-results-no_contact_test-$CHECKPOINT"    # Base output directory
+HAND_STATES="3,4"
+VIDEO_DIR="/content/drive/MyDrive/hand_object_detector/videos/object_contact_test"  # Video input directory
+BASE_SAVE_DIR="/content/drive/MyDrive/hand_object_detector/inference-results-object_contact_test-$CHECKPOINT"    # Base output directory
 
 # Create base output directory if it doesn't exist
 mkdir -p "$BASE_SAVE_DIR"
@@ -60,8 +60,9 @@ ARGS=(
     --thresh_person_contact "$THRESH_PERSON_CONTACT"
     --thresh_object_contact "$THRESH_OBJECT_CONTACT"
     --hand_states "$HAND_STATES"
+    --cuda
     # --webcam
     # --no_save
 )
 
-PYTHONUNBUFFERED=1 python -u inference.py "${ARGS[@]}"
+PYTHONUNBUFFERED=1 /content/hand_object_detector/py38/bin/python -u inference.py "${ARGS[@]}"
