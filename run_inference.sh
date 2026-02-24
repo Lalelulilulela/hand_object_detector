@@ -1,14 +1,17 @@
 #!/bin/bash
 
-# ----------------------------
-# Hand-Object Detector Inference
-# ----------------------------
-
-# Video input directory
-VIDEO_DIR="/Users/jing/Synapxe/semantic-segmentation/videos"
-
-# Base output directory
-BASE_SAVE_DIR="./inference-results"
+LOADDIR=models
+CHECKSESSION=1
+CHECKEPOCH=8
+NET="res101"
+CHECKPOINT=132028
+FPS=30
+THRESH_HAND=0.6
+THRESH_OBJ=0.7
+THRESH_CONTACT=0.5
+HAND_STATES="0"
+VIDEO_DIR="/Users/jing/Synapxe/semantic-segmentation/videos"  # Video input directory
+BASE_SAVE_DIR="./inference-results-no_contact_test-$CHECKPOINT"    # Base output directory
 
 # Create base output directory if it doesn't exist
 mkdir -p "$BASE_SAVE_DIR"
@@ -24,15 +27,6 @@ fi
 SAVE_DIR="$BASE_SAVE_DIR/$NEXT_NUM"
 mkdir -p "$SAVE_DIR"
 
-LOADDIR=models
-
-# Checkpoint file
-CHECKSESSION=1
-CHECKEPOCH=8
-CHECKPOINT=89999  # just the number
-# Network type
-NET="res101"
-FPS=30
 
 # Debug: show which python is used and video count
 echo "Using python: $(which python)"
@@ -46,14 +40,20 @@ if [ ${#VIDEOS[@]} -eq 0 ]; then
 fi
 
 # Run inference
-PYTHONUNBUFFERED=1 python -u inference.py \
-    --video_dir "$VIDEO_DIR" \
-    --save_dir "$SAVE_DIR" \
-    --net "$NET" \
-    --checksession $CHECKSESSION \
-    --checkepoch $CHECKEPOCH \
-    --checkpoint $CHECKPOINT \
-    --load_dir $LOADDIR \
-    --cuda \
-    --webcam \
-    --no_save
+ARGS=(
+    --video_dir "$VIDEO_DIR"
+    --save_dir "$SAVE_DIR"
+    --net "$NET"
+    --checksession "$CHECKSESSION"
+    --checkepoch "$CHECKEPOCH"
+    --checkpoint "$CHECKPOINT"
+    --load_dir "$LOADDIR"
+    --thresh_hand "$THRESH_HAND"
+    --thresh_obj "$THRESH_OBJ"
+    --thresh_contact "$THRESH_CONTACT"
+    --hand_states "$HAND_STATES"
+    # --webcam
+    # --no_save
+)
+
+PYTHONUNBUFFERED=1 python -u inference.py "${ARGS[@]}"

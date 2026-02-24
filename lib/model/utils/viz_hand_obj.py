@@ -42,6 +42,14 @@ def draw_obj_mask(image, draw, obj_idx, obj_bbox, obj_score, width, height, font
 
     return image
 
+def draw_contact_conf(hand_cc, draw, contact_prob, font):
+    # draw the confidence as text above the hand, similar to object label
+    draw.text(
+        (int(hand_cc[0]), max(0, int(hand_cc[1]-30))-2),  # position above hand center
+        f"{contact_prob:.2f}",                                     # e.g., 0.87
+        font=font,                                         # same font as object labels
+        fill=(255, 255, 0)                                 # yellow text
+    )   
 
 def draw_hand_mask(image, draw, hand_idx, hand_bbox, hand_score, side, state, width, height, font):
 

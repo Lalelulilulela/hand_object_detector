@@ -41,6 +41,8 @@ def parse_args():
     parser.add_argument('--class_agnostic', dest='class_agnostic', action='store_true')
     parser.add_argument('--thresh_hand', type=float, default=0.6)
     parser.add_argument('--thresh_obj', type=float, default=0.7)
+    parser.add_argument('--thresh_contact', type=float, default=0.7,
+                        help='Only visualize detections with contact probability >= threshold.')
     parser.add_argument('--video_dir', type=str, default="/Users/jing/Synapxe/semantic-segmentation/videos")
     parser.add_argument('--webcam', action='store_true',
                         help='Enable live webcam inference using device index 0.')
@@ -203,7 +205,7 @@ def main():
             else:
                 base_name = os.path.basename(video_file)[:-4]
 
-            thresh_tag = f"hands-{args.thresh_hand:.2f}-objs-{args.thresh_obj:.2f}"
+            thresh_tag = f"hands-{args.thresh_hand:.2f}-objs-{args.thresh_obj:.2f}-contact-{args.thresh_contact:.2f}"
             output_path = os.path.join(
                 args.save_dir,
                 f"{base_name}_{thresh_tag}_{args.hand_states}det.mp4"
@@ -247,8 +249,11 @@ def main():
                 offset_vector = loss_list[1][0].detach()
                 lr_vector = loss_list[2][0].detach()
 
-                _, contact_indices = torch.max(contact_vector, 2)
+                probs = torch.softmax(contact_vector, 2)
+                contact_probs, contact_indices = torch.max(probs, 2)
+                contact_probs = contact_probs.squeeze(0).unsqueeze(-1).float()
                 contact_indices = contact_indices.squeeze(0).unsqueeze(-1).float()
+
 
                 lr = torch.sigmoid(lr_vector) > 0.5
                 lr = lr.squeeze(0).float()
@@ -295,7 +300,13 @@ def main():
                             cls_boxes = pred_boxes[inds][:, j * 4:(j + 1) * 4]
 
                         cls_dets = torch.cat(
-                            (cls_boxes, cls_scores.unsqueeze(1), contact_indices[inds], offset_vector.squeeze(0)[inds], lr[inds]),
+                            (
+                                cls_boxes, 
+                                cls_scores.unsqueeze(1), 
+                                contact_indices[inds], 
+                                contact_probs[inds],
+                                offset_vector.squeeze(0)[inds], 
+                                lr[inds]),
                             1
                         )
                         cls_dets = cls_dets[order]
@@ -310,28 +321,55 @@ def main():
                         if cls_name == 'hand':
                             hand_dets = cls_dets.cpu().numpy()
 
-                # Filter hand detections by side/state if requested
+                # Filter hand detections by contact prob/side/state if requested
                 if hand_dets is not None:
-                    # hand_dets columns: [x1,y1,x2,y2, score, state, off1, off2, off3, lr]
+                    # hand_dets columns: [x1,y1,x2,y2, score, state, contact_prob, off1, off2, off3, lr]
                     states = hand_dets[:, 5]
-                    lr_vals = hand_dets[:, 9]
-                    keep_mask = np.isin(states, args.hand_states)
+                    lr_vals = hand_dets[:, 10]
+                    contact_probs_det = hand_dets[:, 6]
+                    keep_mask = np.isin(states, args.hand_states) & (contact_probs_det >= args.thresh_contact)
                     if args.hand_side != "any":
                         keep_mask &= (lr_vals == 0) if args.hand_side == "L" else (lr_vals == 1)
                     hand_dets = hand_dets[keep_mask]
                     if hand_dets.size == 0:
                         hand_dets = None
+                if obj_dets is not None:
+                    contact_probs_det = obj_dets[:, 6]
+                    obj_dets = obj_dets[contact_probs_det >= args.thresh_contact]
+                    if obj_dets.size == 0:
+                        obj_dets = None
+
+                # If no objects survived filtering, drop hands that claim object contact
+                if obj_dets is None and hand_dets is not None:
+                    # state codes: 0=N (No Contact), 1=S (Self), 2=O (Other), 3=P (Portable), 4=F (Fixed)
+                    object_contact_states = [2, 3, 4]
+                    keep_mask = ~np.isin(hand_dets[:, 5], object_contact_states)
+                    hand_dets = hand_dets[keep_mask]
+                    if hand_dets.size == 0:
+                        hand_dets = None
 
                 # ======================= Debug: print detection counts and top scores (every 50 frames) =======================
-                if frame_idx % 10 == 0:
+                if frame_idx % 5 == 0:
                     hand_count = 0 if hand_dets is None else int(hand_dets.shape[0])
                     obj_count = 0 if obj_dets is None else int(obj_dets.shape[0])
                     hand_top = None if hand_dets is None or hand_dets.shape[0] == 0 else float(hand_dets[0, 4])
                     obj_top = None if obj_dets is None or obj_dets.shape[0] == 0 else float(obj_dets[0, 4])
+                    
+                    # contact probability of the first hand (or None if no hands)
+                    hand_contact_prob = None
+                    if hand_dets is not None and hand_dets.shape[0] > 0:
+                        hand_contact_prob = float(hand_dets[0, 6])
+
+                    if hand_contact_prob is not None:
+                        contact_text = f"{hand_contact_prob:.3f}"
+                    else:
+                        contact_text = "None"
+
                     print(
                         f"[frame {frame_idx}] detections -> hands: {hand_count}, objs: {obj_count}, "
-                        f"top_scores(h,obj): ({hand_top}, {obj_top})"
+                        f"top_scores(h,obj): ({hand_top}, {obj_top}), contact_prob(h): {contact_text}"
                     )
+
                 # ====================================================== Debug =======================================================
                 
                 im2show = vis_detections_filtered_objects_PIL(frame, obj_dets, hand_dets, args.thresh_hand, args.thresh_obj)
