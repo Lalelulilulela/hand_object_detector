@@ -133,9 +133,9 @@ def vis_detections_filtered_objects_PIL(im, obj_dets, hand_dets, thresh_hand=0.8
                         side_idx = 1
                     draw_line_point(draw, side_idx, (int(hand_cc[0]), int(hand_cc[1])), (int(obj_cc[0]), int(obj_cc[1])))
 
-                # get contact probability (predicted state confidence)
-                contact_prob = float(hand_dets[i, 6])  # column 6 = contact_prob
-                draw_contact_conf(hand_cc, draw, contact_prob, font)
+                    # get contact probability (predicted state confidence)
+                    contact_prob = float(hand_dets[i, 6])  # column 6 = contact_prob
+                    draw_contact_conf(hand_cc, draw, contact_prob, font)
 
         
 
