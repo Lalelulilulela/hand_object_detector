@@ -54,9 +54,9 @@ def parse_args():
     parser.add_argument('--video_dir', type=str, default="/Users/jing/Synapxe/semantic-segmentation/videos")
     parser.add_argument('--webcam', action='store_true',
                         help='Enable live webcam inference using device index 0.')
-    parser.add_argument('--webcam_width', type=int, default=640,
+    parser.add_argument('--webcam_width', type=int, default=1920,
                         help='Webcam capture width (used only with --webcam).')
-    parser.add_argument('--webcam_height', type=int, default=360,
+    parser.add_argument('--webcam_height', type=int, default=1080,
                         help='Webcam capture height (used only with --webcam).')
     parser.add_argument('--no_save', action='store_true',
                         help='Do not save output video (display only for webcam).')
@@ -65,6 +65,7 @@ def parse_args():
                              '0=N (No Contact), 1=S (Self), 2=O (Other), 3=P (Portable), 4=F (Fixed).')
     parser.add_argument('--hand_side', type=str, default="any", choices=["L", "R", "any"],
                         help='Filter hand side to visualize: L, R, or any.')
+    parser.add_argument('--contact_confirm_frames', type=int, default=1)
     parser.add_argument('--fps', type=float, default=0.0,
                         help='Override output FPS (useful when input FPS is wrong/variable). 0 = use input FPS.')
     parser.add_argument('--checksession', type=int, default=1)
@@ -132,6 +133,46 @@ def load_model(device, args, use_cuda, pascal_classes):
     fasterRCNN.eval()
 
     return fasterRCNN
+
+def draw_contact_streaks(
+    frame_bgr,
+    self_contact_streak,
+    person_contact_streak,
+    portable_contact_streak,
+    fixed_contact_streak,
+):
+    lines = [
+        (f"Self contact streak: {self_contact_streak}", (0, 255, 255)),      # yellow
+        (f"Person contact streak: {person_contact_streak}", (0, 255, 0)),    # green
+        (f"Portable contact streak: {portable_contact_streak}", (255, 200, 0)),
+        (f"Fixed contact streak: {fixed_contact_streak}", (255, 255, 255)),  # white
+    ]
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    scale = 0.7
+    thickness = 2
+    margin = 12
+    line_gap = 10
+
+    # Measure tallest text once for consistent vertical spacing
+    (_, text_h), _ = cv2.getTextSize("Ag", font, scale, thickness)
+    step = text_h + line_gap
+
+    h, w = frame_bgr.shape[:2]
+
+    for i, (text, color) in enumerate(lines):
+        (tw, th), _ = cv2.getTextSize(text, font, scale, thickness)
+        x = max(0, w - tw - margin)
+        y = margin + th + i * step
+        y = min(h - 5, y)
+
+        # outline
+        cv2.putText(frame_bgr, text, (x, y), font, scale, (0, 0, 0), thickness + 2, cv2.LINE_AA)
+        # text
+        cv2.putText(frame_bgr, text, (x, y), font, scale, color, thickness, cv2.LINE_AA)
+
+    return frame_bgr
+
 
 def main():
     args = parse_args()
@@ -249,6 +290,12 @@ def main():
 
         # IMPORTANT: we already consumed first frame
         frame_idx = 0
+
+        self_contact_streak = 0
+        person_contact_streak = 0
+        portable_contact_streak = 0
+        fixed_contact_streak = 0
+
         while True:
 
             # First iteration uses already-read frame
@@ -441,9 +488,23 @@ def main():
                     )
 
                 # ====================================================== Debug =======================================================
-                
+                has_self = has_person = has_portable = has_fixed = False
+                if hand_dets is not None and hand_dets.shape[0] > 0:
+                    states = hand_dets[:, 5].astype(int)
+                    has_self = np.any(states == 1)
+                    has_person = np.any(states == 2)
+                    has_portable = np.any(states == 3)
+                    has_fixed = np.any(states == 4)
+
+                # Streak update (reset to 0 if missing this frame)
+                self_contact_streak = self_contact_streak + 1 if has_self else 0
+                person_contact_streak = person_contact_streak + 1 if has_person else 0
+                portable_contact_streak = portable_contact_streak + 1 if has_portable else 0
+                fixed_contact_streak = fixed_contact_streak + 1 if has_fixed else 0
+
                 im2show = vis_detections_filtered_objects_PIL(frame, obj_dets, hand_dets, args.thresh_hand, args.thresh_obj)
                 im2show_rgb = cv2.cvtColor(np.array(im2show), cv2.COLOR_RGB2BGR)
+                im2show_rgb = draw_contact_streaks(im2show_rgb, self_contact_streak, person_contact_streak, portable_contact_streak, fixed_contact_streak)
                 if out is not None:
                     out.write(im2show_rgb)
                 if video_file is None:

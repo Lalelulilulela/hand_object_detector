@@ -3,11 +3,22 @@
 # ----------------------------
 # Hand-Object Detector Inference
 # ----------------------------
-# Video input directory
-$VIDEO_DIR = "C:\Users\DSAI_Team\Desktop\SPPB\SPPB_balance_model4\dataset\videos\object_contact_test"
-
-# Base output directory
-$BASE_SAVE_DIR = "./inference-results-object_contact_test-132028"
+$VIDEO_DIR = "C:\Users\DSAI_Team\Desktop\SPPB\SPPB_balance_model4\dataset\videos\person_contact_test" # Video input directory
+$BASE_SAVE_DIR = "./inference-results-person_contact_test-132028" # Base output directory
+$LOADDIR = "models"
+$CHECKSESSION = 1 # Checkpoint file
+$CHECKEPOCH = 8
+$CHECKPOINT = 132028  # just the number
+$NET = "res101" # Network type
+$FPS = 30
+$THRESH_HAND = 0.6
+$THRESH_OBJ = 0.7
+$THRESH_CONTACT = 0.5
+$THRESH_NO_CONTACT = 0.5
+$THRESH_SELF_CONTACT = 0.53
+$THRESH_PERSON_CONTACT = 0.5
+$THRESH_OBJECT_CONTACT = 0.5
+$HAND_STATES="0,1,2,3,4"
 
 # Create base output directory if it doesn't exist
 New-Item -ItemType Directory -Path $BASE_SAVE_DIR -Force | Out-Null
@@ -30,15 +41,7 @@ if ($existingNumbers.Count -eq 0) {
 $SAVE_DIR = Join-Path (Resolve-Path $BASE_SAVE_DIR) $NEXT_NUM
 New-Item -ItemType Directory -Path $SAVE_DIR -Force | Out-Null
 
-$LOADDIR = "models"
 
-# Checkpoint file
-$CHECKSESSION = 1
-$CHECKEPOCH = 8
-$CHECKPOINT = 132028  # just the number
-# Network type
-$NET = "res101"
-$FPS = 30
 
 # Debug: show which python is used and video count
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
@@ -68,7 +71,15 @@ python -s -u inference.py `
     --checksession $CHECKSESSION `
     --checkepoch $CHECKEPOCH `
     --checkpoint $CHECKPOINT `
-    --load_dir $LOADDIR `
-    --cuda
-    # --webcam `
+    --load_dir "$LOADDIR" `
+    --thresh_hand $THRESH_HAND `
+    --thresh_obj $THRESH_OBJ `
+    --thresh_contact $THRESH_CONTACT `
+    --thresh_no_contact $THRESH_NO_CONTACT `
+    --thresh_self_contact $THRESH_SELF_CONTACT `
+    --thresh_person_contact $THRESH_PERSON_CONTACT `
+    --thresh_object_contact $THRESH_OBJECT_CONTACT `
+    --hand_states "$HAND_STATES" `
+    --cuda `
+    --webcam `
     # --no_save
