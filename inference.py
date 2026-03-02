@@ -134,6 +134,60 @@ def load_model(device, args, use_cuda, pascal_classes):
 
     return fasterRCNN
 
+def filter_contact_streaks(
+        hand_dets,
+        obj_dets,
+        min_streak=3
+):
+    has_self = has_person = has_portable = has_fixed = False
+    if hand_dets is not None and hand_dets.shape[0] > 0:
+        states = hand_dets[:, 5].astype(int)
+        has_self = np.any(states == 1)
+        has_person = np.any(states == 2)
+        has_portable = np.any(states == 3)
+        has_fixed = np.any(states == 4)
+
+    # Streak update (reset to 0 if missing this frame)
+    self_contact_streak = self_contact_streak + 1 if has_self else 0
+    person_contact_streak = person_contact_streak + 1 if has_person else 0
+    portable_contact_streak = portable_contact_streak + 1 if has_portable else 0
+    fixed_contact_streak = fixed_contact_streak + 1 if has_fixed else 0
+
+    # Visualize only when the corresponding contact streak > 3
+    vis_hand_dets = hand_dets
+    vis_obj_dets = obj_dets
+    if hand_dets is not None:
+        states = hand_dets[:, 5].astype(int)
+        keep_mask = np.ones(states.shape[0], dtype=bool)
+        if self_contact_streak <= min_streak:
+            keep_mask &= (states != 1)
+        if person_contact_streak <= min_streak:
+            keep_mask &= (states != 2)
+        if portable_contact_streak <= min_streak:
+            keep_mask &= (states != 3)
+        if fixed_contact_streak <= min_streak:
+            keep_mask &= (states != 4)
+        vis_hand_dets = hand_dets[keep_mask]
+        if vis_hand_dets.size == 0:
+            vis_hand_dets = None
+
+    if obj_dets is not None:
+        states = obj_dets[:, 5].astype(int)
+        keep_mask = np.ones(states.shape[0], dtype=bool)
+        if self_contact_streak <= 3:
+            keep_mask &= (states != min_streak)
+        if person_contact_streak <= 3:
+            keep_mask &= (states != min_streak)
+        if portable_contact_streak <= 3:
+            keep_mask &= (states != min_streak)
+        if fixed_contact_streak <= min_streak:
+            keep_mask &= (states != 4)
+        vis_obj_dets = obj_dets[keep_mask]
+        if vis_obj_dets.size == 0:
+            vis_obj_dets = None
+
+    return vis_hand_dets, vis_obj_dets
+
 def draw_contact_streaks(
     frame_bgr,
     self_contact_streak,
@@ -488,21 +542,9 @@ def main():
                     )
 
                 # ====================================================== Debug =======================================================
-                has_self = has_person = has_portable = has_fixed = False
-                if hand_dets is not None and hand_dets.shape[0] > 0:
-                    states = hand_dets[:, 5].astype(int)
-                    has_self = np.any(states == 1)
-                    has_person = np.any(states == 2)
-                    has_portable = np.any(states == 3)
-                    has_fixed = np.any(states == 4)
+                vis_hand_dets, vis_obj_dets = filter_contact_streaks(hand_dets, obj_dets)
 
-                # Streak update (reset to 0 if missing this frame)
-                self_contact_streak = self_contact_streak + 1 if has_self else 0
-                person_contact_streak = person_contact_streak + 1 if has_person else 0
-                portable_contact_streak = portable_contact_streak + 1 if has_portable else 0
-                fixed_contact_streak = fixed_contact_streak + 1 if has_fixed else 0
-
-                im2show = vis_detections_filtered_objects_PIL(frame, obj_dets, hand_dets, args.thresh_hand, args.thresh_obj)
+                im2show = vis_detections_filtered_objects_PIL(frame, vis_obj_dets, vis_hand_dets, args.thresh_hand, args.thresh_obj)
                 im2show_rgb = cv2.cvtColor(np.array(im2show), cv2.COLOR_RGB2BGR)
                 im2show_rgb = draw_contact_streaks(im2show_rgb, self_contact_streak, person_contact_streak, portable_contact_streak, fixed_contact_streak)
                 if out is not None:
