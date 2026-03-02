@@ -140,6 +140,7 @@ def filter_contact_streaks(
         obj_dets,
         self_contact_streak,
         person_contact_streak,
+        object_contact_streak,
         portable_contact_streak,
         fixed_contact_streak,
         min_streak=3,
@@ -158,6 +159,7 @@ def filter_contact_streaks(
     person_contact_streak = person_contact_streak + 1 if has_person else 0
     portable_contact_streak = portable_contact_streak + 1 if has_portable else 0
     fixed_contact_streak = fixed_contact_streak + 1 if has_fixed else 0
+    object_contact_streak = object_contact_streak + 1 if has_portable or has_fixed else 0
 
     # Visualize only when the corresponding contact streak > 3
     vis_hand_dets = hand_dets
@@ -169,10 +171,8 @@ def filter_contact_streaks(
             keep_mask &= (states != 1)
         if person_contact_streak <= min_streak:
             keep_mask &= (states != 2)
-        if portable_contact_streak <= min_streak:
-            keep_mask &= (states != 3)
-        if fixed_contact_streak <= min_streak:
-            keep_mask &= (states != 4)
+        if object_contact_streak <= min_streak:
+            keep_mask &= (states != 3) & (states != 4)
         vis_hand_dets = hand_dets[keep_mask]
         if vis_hand_dets.size == 0:
             vis_hand_dets = None
@@ -180,30 +180,30 @@ def filter_contact_streaks(
     if obj_dets is not None:
         states = obj_dets[:, 5].astype(int)
         keep_mask = np.ones(states.shape[0], dtype=bool)
-        if self_contact_streak <= 3:
-            keep_mask &= (states != min_streak)
-        if person_contact_streak <= 3:
-            keep_mask &= (states != min_streak)
-        if portable_contact_streak <= 3:
-            keep_mask &= (states != min_streak)
-        if fixed_contact_streak <= min_streak:
-            keep_mask &= (states != 4)
+        if self_contact_streak <= min_streak:
+            keep_mask &= (states != 1)
+        if person_contact_streak <= min_streak:
+            keep_mask &= (states != 2)
+        if object_contact_streak <= min_streak:
+            keep_mask &= (states != 3) & (states != 4)
         vis_obj_dets = obj_dets[keep_mask]
         if vis_obj_dets.size == 0:
             vis_obj_dets = None
 
-    return vis_hand_dets, vis_obj_dets, self_contact_streak, person_contact_streak, portable_contact_streak, fixed_contact_streak
+    return vis_hand_dets, vis_obj_dets, self_contact_streak, person_contact_streak, object_contact_streak, portable_contact_streak, fixed_contact_streak
 
 def draw_contact_streaks(
     frame_bgr,
     self_contact_streak,
     person_contact_streak,
+    object_contact_streak,
     portable_contact_streak,
     fixed_contact_streak,
 ):
     lines = [
         (f"Self contact streak: {self_contact_streak}", (0, 255, 255)),      # yellow
         (f"Person contact streak: {person_contact_streak}", (0, 255, 0)),    # green
+        (f"Object contact streak: {object_contact_streak}", (200, 255, 0)),
         (f"Portable contact streak: {portable_contact_streak}", (255, 200, 0)),
         (f"Fixed contact streak: {fixed_contact_streak}", (255, 255, 255)),  # white
     ]
@@ -353,6 +353,7 @@ def main():
 
         self_contact_streak = 0
         person_contact_streak = 0
+        object_contact_streak = 0
         portable_contact_streak = 0
         fixed_contact_streak = 0
 
@@ -548,13 +549,13 @@ def main():
                     )
 
                 # ====================================================== Debug =======================================================
-                vis_hand_dets, vis_obj_dets, self_contact_streak, person_contact_streak, portable_contact_streak, fixed_contact_streak = filter_contact_streaks(
-                    hand_dets, obj_dets, self_contact_streak, person_contact_streak, portable_contact_streak, fixed_contact_streak, args.min_contact_streaks
+                vis_hand_dets, vis_obj_dets, self_contact_streak, person_contact_streak, object_contact_streak, portable_contact_streak, fixed_contact_streak = filter_contact_streaks(
+                    hand_dets, obj_dets, self_contact_streak, person_contact_streak, object_contact_streak, portable_contact_streak, fixed_contact_streak, args.min_contact_streaks
                 )
 
                 im2show = vis_detections_filtered_objects_PIL(frame, vis_obj_dets, vis_hand_dets, args.thresh_hand, args.thresh_obj)
                 im2show_rgb = cv2.cvtColor(np.array(im2show), cv2.COLOR_RGB2BGR)
-                im2show_rgb = draw_contact_streaks(im2show_rgb, self_contact_streak, person_contact_streak, portable_contact_streak, fixed_contact_streak)
+                im2show_rgb = draw_contact_streaks(im2show_rgb, self_contact_streak, person_contact_streak, object_contact_streak, portable_contact_streak, fixed_contact_streak)
                 if out is not None:
                     out.write(im2show_rgb)
                 if video_file is None:
