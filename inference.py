@@ -51,6 +51,7 @@ def parse_args():
                         help='Only visualize detections with no contact probability >= threshold.')
     parser.add_argument('--thresh_object_contact', type=float, default=0.5,
                         help='Only visualize detections with person contact probability >= threshold.')
+    parser.add_argument('--min_contact_streaks', type=int, default=3)
     parser.add_argument('--video_dir', type=str, default="/Users/jing/Synapxe/semantic-segmentation/videos")
     parser.add_argument('--webcam', action='store_true',
                         help='Enable live webcam inference using device index 0.')
@@ -137,7 +138,12 @@ def load_model(device, args, use_cuda, pascal_classes):
 def filter_contact_streaks(
         hand_dets,
         obj_dets,
-        min_streak=3
+        self_contact_streak,
+        person_contact_streak,
+        portable_contact_streak,
+        fixed_contact_streak,
+        min_streak=3,
+
 ):
     has_self = has_person = has_portable = has_fixed = False
     if hand_dets is not None and hand_dets.shape[0] > 0:
@@ -186,7 +192,7 @@ def filter_contact_streaks(
         if vis_obj_dets.size == 0:
             vis_obj_dets = None
 
-    return vis_hand_dets, vis_obj_dets
+    return vis_hand_dets, vis_obj_dets, self_contact_streak, person_contact_streak, portable_contact_streak, fixed_contact_streak
 
 def draw_contact_streaks(
     frame_bgr,
@@ -542,7 +548,9 @@ def main():
                     )
 
                 # ====================================================== Debug =======================================================
-                vis_hand_dets, vis_obj_dets = filter_contact_streaks(hand_dets, obj_dets)
+                vis_hand_dets, vis_obj_dets, self_contact_streak, person_contact_streak, portable_contact_streak, fixed_contact_streak = filter_contact_streaks(
+                    hand_dets, obj_dets, self_contact_streak, person_contact_streak, portable_contact_streak, fixed_contact_streak, args.min_contact_streaks
+                )
 
                 im2show = vis_detections_filtered_objects_PIL(frame, vis_obj_dets, vis_hand_dets, args.thresh_hand, args.thresh_obj)
                 im2show_rgb = cv2.cvtColor(np.array(im2show), cv2.COLOR_RGB2BGR)
