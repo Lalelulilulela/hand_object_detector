@@ -10,12 +10,13 @@ THRESH_HAND=0.6
 THRESH_OBJ=0.7
 THRESH_CONTACT=0.5
 THRESH_NO_CONTACT=0.5
-THRESH_SELF_CONTACT=0.2
+THRESH_SELF_CONTACT=0.53
 THRESH_PERSON_CONTACT=0.5
 THRESH_OBJECT_CONTACT=0.5
-HAND_STATES="0"
-VIDEO_DIR="./videos/no_contact_test"  # Video input directory
-BASE_SAVE_DIR="./inference-results-no_contact_test-$CHECKPOINT"    # Base output directory
+MIN_CONTACT_STREAKS=3
+HAND_STATES="1,2,3,4"
+VIDEO_DIR="./videos/27_feb_testing"  # Video input directory
+BASE_SAVE_DIR="./inference-results/27_feb_testing-$CHECKPOINT"    # Base output directory
 
 # Create base output directory if it doesn't exist
 mkdir -p "$BASE_SAVE_DIR"
@@ -35,9 +36,10 @@ mkdir -p "$SAVE_DIR"
 # Debug: show which python is used and video count
 echo "Using python: $(which python)"
 python -V
-shopt -s nullglob
-VIDEOS=("$VIDEO_DIR"/*.mp4)
-echo "Found ${#VIDEOS[@]} mp4 file(s) in $VIDEO_DIR"
+shopt -s nocaseglob
+
+VIDEOS=("$VIDEO_DIR"/*.{mp4,mov,avi,mkv})
+echo "Found ${#VIDEOS[@]} video file(s) in $VIDEO_DIR"
 if [ ${#VIDEOS[@]} -eq 0 ]; then
     echo "No videos found. Exiting."
     exit 1
@@ -59,6 +61,7 @@ ARGS=(
     --thresh_self_contact "$THRESH_SELF_CONTACT"
     --thresh_person_contact "$THRESH_PERSON_CONTACT"
     --thresh_object_contact "$THRESH_OBJECT_CONTACT"
+    --min_contact_streaks "$MIN_CONTACT_STREAKS"
     --hand_states "$HAND_STATES"
     # --webcam
     # --no_save

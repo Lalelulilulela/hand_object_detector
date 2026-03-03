@@ -279,7 +279,11 @@ def main():
     if args.webcam:
         video_files = [None]
     else:
-        video_files = glob.glob(os.path.join(args.video_dir, "*.mp4"))
+        extensions = ("*.mp4", "*.mov", "*.avi", "*.mkv")
+        video_files = []
+        for ext in extensions:
+            video_files.extend(glob.glob(os.path.join(args.video_dir, ext)))
+    
     os.makedirs(args.save_dir, exist_ok=True)
 
     stop_requested = False
