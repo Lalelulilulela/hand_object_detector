@@ -167,11 +167,11 @@ def filter_contact_streaks(
     if hand_dets is not None:
         states = hand_dets[:, 5].astype(int)
         keep_mask = np.ones(states.shape[0], dtype=bool)
-        if self_contact_streak <= min_streak:
+        if self_contact_streak < min_streak:
             keep_mask &= (states != 1)
-        if person_contact_streak <= min_streak:
+        if person_contact_streak < min_streak:
             keep_mask &= (states != 2)
-        if object_contact_streak <= min_streak:
+        if object_contact_streak < min_streak:
             keep_mask &= (states != 3) & (states != 4)
         vis_hand_dets = hand_dets[keep_mask]
         if vis_hand_dets.size == 0:
@@ -180,11 +180,11 @@ def filter_contact_streaks(
     if obj_dets is not None:
         states = obj_dets[:, 5].astype(int)
         keep_mask = np.ones(states.shape[0], dtype=bool)
-        if self_contact_streak <= min_streak:
+        if self_contact_streak < min_streak:
             keep_mask &= (states != 1)
-        if person_contact_streak <= min_streak:
+        if person_contact_streak < min_streak:
             keep_mask &= (states != 2)
-        if object_contact_streak <= min_streak:
+        if object_contact_streak < min_streak:
             keep_mask &= (states != 3) & (states != 4)
         vis_obj_dets = obj_dets[keep_mask]
         if vis_obj_dets.size == 0:
